@@ -1,6 +1,7 @@
 # entra-opa-jwt
 
 ## Thank you!
+
 To @pvsone for creating the original example repo. Unfortunately the original JWKS sample service appears to be down. And since my usecase requires authenticating with Entra anyway I figure Ill detail the process here.
 
 ## Overview
@@ -70,12 +71,15 @@ To simplify this tutorial, we will create an Application with the [Resource admi
 
 ### Generate jwks data and input token
 
+Note: Microsoft rotates their jwks keys periodically, so I created a bundle that takes the jwks url as an input to pull the keys itself.
+
 ```bash
 tenantid="{your tenant id}"
 clientid="{your app registration client id}"
 username="entra-opa-jwt-admin@{your-tenant}.onmicrosoft.com"
 password="{entra-opa-jwt-admin password}"
 issuer="https://login.microsoftonline.com/$tenantid/v2.0"
+keys="https://login.microsoftonline.com/$tenantid/discovery/v2.0/keys"
 
 curl --location "https://login.microsoftonline.com/$tenantid/discovery/v2.0/keys" > bundle/jwks/data.json
 curl --location "https://login.microsoftonline.com/$tenantid/oauth2/v2.0/token" \
@@ -84,7 +88,7 @@ curl --location "https://login.microsoftonline.com/$tenantid/oauth2/v2.0/token" 
 --data-urlencode "scope=$clientid/.default" \
 --data-urlencode "username=$username" \
 --data-urlencode "password=$password" \
---data-urlencode "grant_type=password" | jq --arg iss $issuer --arg aud $clientid '{jwt:.access_token, iss: $iss, aud: $aud, }' > input.json
+--data-urlencode "grant_type=password" | jq --arg iss $issuer --arg aud $clientid --arg keys $keys '{jwt:.access_token, iss: $iss, aud: $aud, jwks_keys: $keys }' > input.json
 ```
 
 ## Exercise the Policy
@@ -103,4 +107,7 @@ opa eval -b ./bundle -i input.json data.rules.decode_output
 # Decode AND Verify
 opa eval -b ./bundle -i input.json data.rules.decode_verify_output
 # result will contain `true` AND the decoded token as JSON
+
+# bundle with jwks url
+opa eval -b ./bundle_with_jwks_url -i input.json data.rules.decode_verify_output
 ```
